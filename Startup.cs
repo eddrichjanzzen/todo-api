@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Models;
+using System.IO;
 
 
 
@@ -32,8 +33,11 @@ namespace TodoApi
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // services.AddDbContext<TodoContext>(opt =>
+            //   opt.UseSqlite("Data Source=TodoList.db"));
+
             services.AddDbContext<TodoContext>(opt =>
-              opt.UseSqlite("Data Source=TodoList.db"));
+               opt.UseInMemoryDatabase("TodoList"));
             
             //adding logic for CORS
             services.AddCors(options =>
@@ -42,7 +46,9 @@ namespace TodoApi
                 builder =>
                 {
                     builder.WithOrigins("https://localhost:4200",
-                                        "http://localhost:4200")
+                                        "http://localhost:4200",
+                                        "https://simple-todo.azurewebsites.net/",
+                                        "http://simple-todo.azurewebsites.net/")
                                         .AllowAnyHeader()
                                         .AllowAnyMethod();
                 });
@@ -61,6 +67,26 @@ namespace TodoApi
             }
 
             app.UseHttpsRedirection();
+            
+
+            // when a request comes in it will hit this first
+            app.Use(async (context, next) => 
+            {
+              await next();
+
+              if(context.Response.StatusCode == 404 && !Path.HasExtension(context.Request.Path.Value))
+              {
+                context.Request.Path = "/index.html";
+                await next();
+              }  
+
+            });
+
+
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+
+
 
             app.UseRouting();
 
